@@ -1,4 +1,4 @@
-# IT Monk 自動發文機制
+# WP Article AI Workflow（IT Monk）
 
 AI Agent 驅動的 WordPress 內容自動化系統，支援兩種工作模式：
 
