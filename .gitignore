@@ -1,0 +1,9 @@
+# 勿提交密鑰與環境變數
+.env
+
+# Node
+node_modules/
+
+# 日誌與暫存
+*.log
+.DS_Store

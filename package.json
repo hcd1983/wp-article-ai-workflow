@@ -1,0 +1,34 @@
+{
+  "name": "it-monk-auto-post",
+  "version": "0.1.0",
+  "description": "自動發文到 WordPress 的 AI Skill 與腳本（搜尋文獻、產文、縮圖、發布）",
+  "type": "module",
+  "main": "lib/config.js",
+  "scripts": {
+    "test:config": "node -e \"import('./lib/config.js').then(c => console.log('SITE:', c.config.SITE ? 'ok' : 'missing'))\"",
+    "wp:get-tags": "node ./scripts/wp-get-tags.js",
+    "wp:create-category": "node ./scripts/wp-create-category.js",
+    "wp:publish-post": "node ./scripts/wp-publish-post.js",
+    "ai:generate-thumbnail": "node ./scripts/generate-thumbnail.js",
+    "ai:add-illustrations": "node ./scripts/add-illustrations.js",
+    "series:init": "node ./scripts/series-init.js",
+    "series:publish": "node ./scripts/series-publish.js",
+    "series:add-illustrations": "node ./scripts/series-add-illustrations.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "wordpress",
+    "auto-post",
+    "gemini",
+    "sharp"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.45.0",
+    "axios": "^1.13.6",
+    "dotenv": "^17.3.1",
+    "sharp": "^0.34.5"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "illustrations": [
+    {
+      "insertAfterBlockIndex": 6,
+      "prompt": "clean line art, monochrome, minimal shading, technical diagram vibe; late-night office scene with a tired software engineer sitting in front of a blank editor, behind him ghosted panels showing an AI interviewer asking questions and speech bubbles turning into chapter outlines; non-photorealistic graphic style",
+      "altText": "深夜辦公室裡，工程師對著空白編輯器發愣，背後浮現 AI 記者提問與章節大綱的對話框。"
+    },
+    {
+      "insertAfterBlockIndex": 30,
+      "prompt": "clean line art, monochrome, minimal shading, technical diagram vibe; comic-style 5-panel strip showing: interview mode questions, AI drafting chapters 1-3, author reviewing with a red pen, AI generating chapters 4-5, author adding notes and arrows; clear workflow feel",
+      "altText": "五格漫畫式流程圖：從 interview 提問、AI 先寫到第三章、作者審稿、AI 寫完五章、作者回頭加註與修稿。"
+    },
+    {
+      "insertAfterBlockIndex": 46,
+      "prompt": "clean line art, monochrome, minimal shading, technical diagram vibe; abstract scene of the author and an AI silhouette sitting at the same desk, between them a shared notebook labeled 'workflow' and arrows pointing to both a novel manuscript and a configuration document; philosophical but minimal composition",
+      "altText": "作者和象徵 AI 的剪影坐在同一張桌前，共用一本寫著 workflow 的筆記本，箭頭同時指向小說手稿和設定文件。"
+    }
+  ]
+}
