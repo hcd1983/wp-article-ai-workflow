@@ -11,6 +11,7 @@
     "wp:publish-post": "node ./scripts/wp-publish-post.js",
     "ai:generate-thumbnail": "node ./scripts/generate-thumbnail.js",
     "ai:add-illustrations": "node ./scripts/add-illustrations.js",
+    "sync:review-drafts": "node ./scripts/sync-review-drafts.js",
     "series:init": "node ./scripts/series-init.js",
     "series:publish": "node ./scripts/series-publish.js",
     "series:add-illustrations": "node ./scripts/series-add-illustrations.js"
