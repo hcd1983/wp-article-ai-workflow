@@ -7,3 +7,6 @@ node_modules/
 # 日誌與暫存
 *.log
 .DS_Store
+
+# AI 產出的草稿、縮圖、插圖與中間產物
+article-drafts/
