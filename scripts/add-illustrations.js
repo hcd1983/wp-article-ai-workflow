@@ -17,6 +17,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateThumbnail } from '../lib/generate-thumbnail.js';
 import { getIllustrationConfig } from '../lib/illustration-config.js';
+import { splitIntoBlocks, insertFigures } from '../lib/html-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,97 +35,6 @@ function parseArgs() {
     parsed[key] = value;
   }
   return parsed;
-}
-
-/**
- * 將 HTML 片段切成「頂層區塊」陣列（comment, ul, ol, h1-h4, p, pre, hr）。
- * @param {string} html
- * @returns {string[]}
- */
-function splitIntoBlocks(html) {
-  const blocks = [];
-  let remaining = html.trim();
-  // 依序匹配：註解、ul、ol、h1-h4、p、pre、hr（hr 自閉合）
-  const patterns = [
-    [/^(<!--[\s\S]*?-->)/i, 1],
-    [/^<(ul)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/i, 0],
-    [/^<(ol)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/i, 0],
-    [/^<(h[1-4])(?:\s[^>]*)?>([\s\S]*?)<\/\1>/i, 0],
-    [/^<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/i, 0],
-    [/^<pre(?:\s[^>]*)?>([\s\S]*?)<\/pre>/i, 0],
-    [/^<hr\s*\/?>/i, 0],
-  ];
-
-  while (remaining.length > 0) {
-    const trimmed = remaining.trimStart();
-    if (trimmed.length < remaining.length) {
-      blocks.push(remaining.slice(0, remaining.length - trimmed.length));
-      remaining = trimmed;
-      continue;
-    }
-    let matched = false;
-    for (const [re, fullMatchIndex] of patterns) {
-      const m = remaining.match(re);
-      if (m) {
-        blocks.push(m[0]);
-        remaining = remaining.slice(m[0].length);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      // 無法辨識的內容：吃到下一個已知開頭或結尾
-      const next = remaining.match(/<(?:ul|ol|h[1-4]|p|pre|hr|<!--)/i);
-      if (next) {
-        const idx = next.index;
-        if (idx > 0) blocks.push(remaining.slice(0, idx));
-        remaining = remaining.slice(idx);
-      } else {
-        blocks.push(remaining);
-        break;
-      }
-    }
-  }
-  return blocks;
-}
-
-/**
- * 在區塊陣列中，在指定 index 之後插入多個 figure；illustrations 已按 insertAfterBlockIndex 排序 ascending。
- * @param {string[]} blocks
- * @param {{ insertAfterBlockIndex: number, altText: string, imagePath: string }[]} illustrations
- * @returns {string[]}
- */
-function insertFigures(blocks, illustrations) {
-  const result = [];
-  let figIdx = 0;
-  for (let i = 0; i < blocks.length; i += 1) {
-    result.push(blocks[i]);
-    while (figIdx < illustrations.length && illustrations[figIdx].insertAfterBlockIndex === i) {
-      const { altText, imagePath } = illustrations[figIdx];
-      const filename = path.basename(imagePath);
-      result.push(`<figure><img src="${filename}" alt="${escapeHtmlAttr(altText)}"/><figcaption>${escapeHtml(altText)}</figcaption></figure>\n`);
-      figIdx += 1;
-    }
-  }
-  while (figIdx < illustrations.length) {
-    const { altText, imagePath } = illustrations[figIdx];
-    const filename = path.basename(imagePath);
-    result.push(`<figure><img src="${filename}" alt="${escapeHtmlAttr(altText)}"/><figcaption>${escapeHtml(altText)}</figcaption></figure>\n`);
-    figIdx += 1;
-  }
-  return result;
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function escapeHtmlAttr(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
 async function main() {
