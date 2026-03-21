@@ -16,6 +16,7 @@
     - `SITE`
     - `USER_NAME`
     - `GEMINI_API_KEY`
+    - （選）`PEXELS_API_KEY` — 若插圖或縮圖要使用 Pexels 圖庫
 - 可執行：
   - `yarn test:config`
 
@@ -25,17 +26,18 @@
   - 指令：`yarn wp:get-tags`
   - 輸出：`{ tags: [...], categories: [...] }` 的 JSON（印在 stdout）
 
-- **產生縮圖（Gemini → Sharp）**
+- **產生縮圖（Gemini 或 Pexels → Sharp）**
   - 建議檔名規則：**使用文章 slug 作為檔名**，並放在 `article-drafts/` 底下，例如：`article-drafts/claude-sonnet-4-6.jpg`。
-  - 指令範例：`yarn ai:generate-thumbnail --prompt "<縮圖描述>" --out ./article-drafts/<文章-slug>.jpg`
-  - （可選）若要維持角色/畫風一致，可帶參考圖：`yarn ai:generate-thumbnail --prompt "<縮圖描述>" --reference "./path/to/ref.jpg" --out ./article-drafts/<文章-slug>.jpg`（多張以逗號分隔）
-  - 行為：呼叫 Gemini 產圖後，透過 Sharp 壓成縮圖，存成檔案。
+  - 預設 Gemini：`yarn ai:generate-thumbnail --prompt "<縮圖描述>" --out ./article-drafts/<文章-slug>.jpg`
+  - （可選）參考圖（僅 Gemini）：`yarn ai:generate-thumbnail --prompt "<縮圖描述>" --reference "./path/to/ref.jpg" --out ./article-drafts/<文章-slug>.jpg`（多張以逗號分隔）
+  - Pexels：`yarn ai:generate-thumbnail --image-source pexels --pexels-query "<搜尋關鍵字>" --out ./article-drafts/<文章-slug>.jpg`（需 `PEXELS_API_KEY`）
+  - 行為：依來源產圖後，透過 Sharp 壓成縮圖，存成檔案。
 
 - **文章插圖（可選）**
-  - 前置：`.env` 可設 `ILLUSTRATION_ENABLED_DEFAULT`、`ILLUSTRATION_MAX_PER_ARTICLE`、`ILLUSTRATION_DEFAULT_STYLE`；規則檔見 `docs/illustration-rules.md`（不插圖類型／標籤、本篇不插圖標記）。
-  - 指令：`yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫 JSON 路徑或 ->`
-  - 計畫格式（JSON）：`{ "style": "可選，整篇主風格", "illustrations": [ { "insertAfterBlockIndex": 0, "prompt": "英文描述", "altText": "圖說" } ] }`。`insertAfterBlockIndex` 為 0 表示在第一個頂層區塊（如第一個 `<h1>` 或 `<p>`）之後插入。
-  - 行為：依計畫產圖（每張為 `<slug>-1.jpg`、`<slug>-2.jpg`… 於 `article-drafts/`），並在對應位置插入 `<figure>` 寫回 HTML。文章開頭若有 `<!-- illustration: off -->` 則略過。
+  - 前置：`.env` 可設 `ILLUSTRATION_ENABLED_DEFAULT`、`ILLUSTRATION_MAX_PER_ARTICLE`、`ILLUSTRATION_DEFAULT_STYLE`、`ILLUSTRATION_STRICT_MODE`、`PEXELS_API_KEY`、`PEXELS_ATTRIBUTION_DEFAULT`；規則檔見 `docs/illustration-rules.md`（不插圖類型／標籤、本篇不插圖標記）。
+  - 指令：`yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫 JSON 路徑或 ->`；需舊版「一錯即停」可加 `--strict`。
+  - 計畫格式（JSON）：可含 `defaultSource`（`gemini`|`pexels`）；每張可設 `source`、`prompt`（Gemini）、`pexelsQuery`（Pexels）、`attribution`（單張覆寫署名）。`insertAfterBlockIndex` 為 0 表示在第一個頂層區塊之後插入。詳見 `CLAUDE.md` 與 `docs/implementation-plan-pexels.md`。
+  - 行為：依計畫產圖（成功張數為 `<slug>-1.jpg`… 連號），並在對應位置插入 `<figure>` 寫回 HTML；單張失敗預設略過並繼續。文章開頭若有 `<!-- illustration: off -->` 則略過。
 
 - **發布文章**
   - 指令（以下皆從**專案根目錄**執行）：
@@ -78,10 +80,12 @@
 
 3.5. **文章插圖（可選，依設定與規則）**
    - 若未關閉插圖（見 `docs/illustration-rules.md` 與 `.env`），且使用者未要求本篇不插圖：
-     - 依文章語意與段落，由 Agent 決定插圖位置與數量（不超過 `ILLUSTRATION_MAX_PER_ARTICLE`），並決定整篇**主風格**。若專案或該系列已有明確的 Art Bible（例如 `art_style.illustration_style`），應優先沿用該風格，不自行換畫風，除非使用者明確要求更動。
-     - 產出**插圖計畫** JSON：`{ "style": "主風格描述", "illustrations": [ { "insertAfterBlockIndex": N, "prompt": "英文圖像描述", "altText": "圖說／無障礙說明" } ] }`。區塊順序為 HTML 頂層元素（h1、h2、p、ul、ol、hr、pre）依出現順序，N 從 0 開始。
-     - 呼叫：`yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫檔路徑>`（或將 JSON 從 stdin 傳入：`--plan -`）。
-     - 完成後文章內會多出 `<figure>` 與對應圖片檔（`<slug>-1.jpg`、`<slug>-2.jpg`…），發布時需一併上傳這些圖片或改為站內網址。
+     - **出圖來源**：若使用者**未**指定「全權交你決定」，且**未**說明要用 Gemini／Pexels／混合，Agent **必須先問**：「插圖要用 AI 生成（Gemini）、搜尋攝影圖（Pexels），還是混合？」若使用者已明確指定或委託全權決定，則依指示或自行逐張選擇並註明理由。
+     - 向使用者**提議**插圖時，以**自然語言描述段落位置**（引用小節標題或段落開頭），**不要**用 `insertAfterBlockIndex` 當主溝通；使用者確認後，Agent 再換算為 JSON 的 `insertAfterBlockIndex`（頂層區塊順序：h1、h2、p、ul、ol、hr、pre）。
+     - 依文章語意與段落，決定插圖位置與數量（不超過 `ILLUSTRATION_MAX_PER_ARTICLE`），以及每張的來源（`gemini` 或 `pexels`）。Gemini 張需 `prompt`（英文）；Pexels 張需 `pexelsQuery`（簡短關鍵字）。可設 `defaultSource` 或逐張 `source`。若專案有 Art Bible，Gemini 張應優先沿用 `illustration_style`，不要自行換畫風。
+     - 產出**最終**插圖計畫 JSON（使用者確認後）：見 `CLAUDE.md` 範例（含 `defaultSource`、`source`、`pexelsQuery`、`attribution` 等）。
+     - 呼叫：`yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫檔路徑>`（或 `--plan -`）。
+     - 完成後文章內會多出 `<figure>` 與對應圖片檔；發布時需一併上傳這些圖片。使用者回饋調整來源或位置時，應輸出**更新後的完整提議**再執行（迭代細節見 `docs/implementation-plan-pexels.md` §13）。
 
 4. **歸類分類與 Tag**
    - 呼叫：`yarn wp:get-tags` 取得目前站點的 `tags` 與 `categories`。
@@ -93,16 +97,18 @@
      - 避免與現有 Tag 嚴重重複或只差一兩個字。
    - 將名稱/slug 對應回 `id`，之後以 `categories`/`tags` id 陣列傳給 `wp:publish-post`，確認實際帶入的 Tag 數量 **不少於 5 個**。
 
-5. **產出縮圖的 prompt**
-   - 由 Agent 依文章主題與調性，撰寫一段英文簡短描述，用於生成縮圖，例如：
-     - `"minimalistic illustration of a monk coding at night, blue and purple tones"`
+5. **產出縮圖的 prompt 或圖庫關鍵字**
+   - 由 Agent 依文章主題與調性決定縮圖來源（與步驟 3.5 相同規則：未指定且未全權委託時應先問 Gemini／Pexels）。
+   - Gemini：撰寫英文簡短描述，例如 `"minimalistic illustration of a monk coding at night, blue and purple tones"`。
+   - Pexels：撰寫簡短英文搜尋關鍵字。
 
 6. **生成與優化縮圖**
    - 以文章 slug 命名縮圖檔案，並與文章放在同一個資料夾（`article-drafts/`），例如：
      - 文章：`article-drafts/claude-sonnet-4-6.html`
      - 縮圖：`article-drafts/claude-sonnet-4-6.jpg`
    - 呼叫：
-     - `yarn ai:generate-thumbnail --prompt "<步驟 5 的描述>" --out ./article-drafts/<文章-slug>.jpg`
+     - Gemini：`yarn ai:generate-thumbnail --prompt "<步驟 5 的描述>" --out ./article-drafts/<文章-slug>.jpg`
+     - Pexels：`yarn ai:generate-thumbnail --image-source pexels --pexels-query "<關鍵字>" --out ./article-drafts/<文章-slug>.jpg`
    - 產出的縮圖檔案作為 WordPress 文章的縮圖使用。
 
 7. **發布到 WordPress**
@@ -117,14 +123,14 @@
 - **由 Agent 直接負責的部分**
   - 搜尋文獻與整理摘要（步驟 2）。
   - 撰寫文章內容（步驟 3）。
-  - 文章插圖計畫（步驟 3.5：位置、主風格、每張 prompt 與 altText）。
+  - 文章插圖計畫（步驟 3.5：位置、每張來源、Gemini prompt 或 Pexels 關鍵字、altText）。
   - 決定分類與 Tag（邏輯 + 映射至 id，步驟 4）。
   - 產生縮圖用的英文 prompt（步驟 5）。
 
 - **由專案腳本/模組處理的部分**
   - `yarn wp:get-tags`：讀取現有 Tag / Category。
   - `yarn ai:add-illustrations`：依計畫產圖並插入 `<figure>`。
-  - `yarn ai:generate-thumbnail`：呼叫 Gemini 產圖 + Sharp 縮圖。
+  - `yarn ai:generate-thumbnail`：依來源產圖 + Sharp 縮圖。
   - `yarn wp:publish-post`：上傳媒體與建立文章。
 
 ## 6. E2E 驗證建議流程
