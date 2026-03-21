@@ -4,10 +4,23 @@
  * 依「插圖計畫」JSON 為文章 HTML 生成插圖並插入 <figure>。
  * 使用方式：
  *   yarn ai:add-illustrations --article ./article-drafts/slug.html --plan ./plan.json
+ *   yarn ai:add-illustrations --article ./path.html --plan ./plan.json --strict
  *   cat plan.json | yarn ai:add-illustrations --article ./article-drafts/slug.html --plan -
  *
  * 計畫格式：
- *   { "style": "可選，整篇主風格", "illustrations": [ { "insertAfterBlockIndex": 0, "prompt": "英文描述", "altText": "圖說" } ] }
+ *   {
+ *     "defaultSource": "gemini" | "pexels"（可選）,
+ *     "illustrations": [
+ *       {
+ *         "insertAfterBlockIndex": 0,
+ *         "source": "gemini" | "pexels"（可選）,
+ *         "prompt": "英文描述（Gemini）",
+ *         "pexelsQuery": "搜尋關鍵字（Pexels）",
+ *         "altText": "圖說",
+ *         "attribution": false（可選，覆寫署名）
+ *       }
+ *     ]
+ *   }
  *
  * 文章開頭若有 <!-- illustration: off --> 則略過不處理。
  */
@@ -37,14 +50,40 @@ function parseArgs() {
   return parsed;
 }
 
+/**
+ * @param {object} plan
+ * @param {object} item
+ * @returns {'gemini'|'pexels'}
+ */
+function resolveImageSource(plan, item) {
+  const raw = item.source ?? plan.defaultSource ?? 'gemini';
+  const n = String(raw).toLowerCase();
+  if (n === 'pexels') return 'pexels';
+  return 'gemini';
+}
+
+/**
+ * @param {'gemini'|'pexels'} source
+ * @param {object} item
+ * @param {boolean} pexelsAttributionDefault
+ */
+function resolveShowAttribution(source, item, pexelsAttributionDefault) {
+  if (source !== 'pexels') return false;
+  if (typeof item.attribution === 'boolean') {
+    return item.attribution;
+  }
+  return pexelsAttributionDefault;
+}
+
 async function main() {
   const args = parseArgs();
   const articlePath = args.article;
   const planPath = args.plan;
   const dryRun = args['dry-run'] === true;
+  const strictCli = args.strict === true;
 
   if (!articlePath || !planPath) {
-    console.error('用法: yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <path 或 ->');
+    console.error('用法: yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <path 或 -> [--strict]');
     process.exitCode = 1;
     return;
   }
@@ -91,6 +130,8 @@ async function main() {
     return;
   }
 
+  const strict = strictCli || ilc.strictMode;
+
   const maxCount = ilc.maxPerArticle;
   if (illustrations.length > maxCount) {
     console.warn(`[add-illustrations] 計畫共 ${illustrations.length} 張，上限 ${maxCount}，僅處理前 ${maxCount} 張`);
@@ -106,32 +147,60 @@ async function main() {
   const slug = path.basename(articlePath, path.extname(articlePath));
   const draftDir = path.dirname(articleAbs);
 
-  // 依 insertAfterBlockIndex 升序，以便依序插入
   toProcess.sort((a, b) => (a.insertAfterBlockIndex ?? 0) - (b.insertAfterBlockIndex ?? 0));
 
   const blocks = splitIntoBlocks(html);
-  const imagePaths = [];
+  const usedPhotoIds = new Set();
+  const successItems = [];
 
   for (let i = 0; i < toProcess.length; i += 1) {
     const item = toProcess[i];
+    const source = resolveImageSource(plan, item);
     const prompt = item.prompt || 'illustration';
     const altText = item.altText || '';
     const style = item.style ?? plan.style ?? ilc.defaultStyle;
-    const outName = `${slug}-${i + 1}.jpg`;
+    const seq = dryRun ? i + 1 : successItems.length + 1;
+    const outName = `${slug}-${seq}.jpg`;
     const outPath = path.join(draftDir, outName);
-    imagePaths.push({ ...item, imagePath: outPath });
+    const showAttribution = resolveShowAttribution(source, item, ilc.pexelsAttributionDefault);
+
     if (dryRun) {
-      console.log('[add-illustrations] [dry-run] 會產圖:', outName, prompt.slice(0, 50) + '...');
+      console.log('[add-illustrations] [dry-run] 會產圖:', outName, source, (prompt || item.pexelsQuery || '').slice(0, 50));
       continue;
     }
+
+    const genOptions = {
+      imageSource: source,
+      prompt,
+      pexelsQuery: item.pexelsQuery,
+      style: source === 'gemini' ? style : undefined,
+      usedPhotoIds,
+    };
+
     try {
-      const buffer = await generateThumbnail(prompt, { style });
+      const { buffer, meta } = await generateThumbnail(prompt, genOptions);
       fs.writeFileSync(outPath, buffer);
-      console.log('[add-illustrations] 已寫入', outName);
+      console.log('[add-illustrations] 已寫入', outName, `(${source})`);
+      successItems.push({
+        insertAfterBlockIndex: item.insertAfterBlockIndex ?? 0,
+        altText,
+        imagePath: outPath,
+        showAttribution,
+        pexelsMeta:
+          source === 'pexels' && meta
+            ? {
+                photographer: meta.photographer,
+                photographerUrl: meta.photographerUrl,
+                sourceUrl: meta.sourceUrl,
+              }
+            : undefined,
+      });
     } catch (err) {
       console.error('[add-illustrations] 產圖失敗:', outName, err.message);
-      process.exitCode = 1;
-      return;
+      if (strict) {
+        process.exitCode = 1;
+        return;
+      }
     }
   }
 
@@ -140,7 +209,7 @@ async function main() {
     return;
   }
 
-  const newBlocks = insertFigures(blocks, imagePaths);
+  const newBlocks = insertFigures(blocks, successItems);
   const newHtml = newBlocks.join('\n');
   fs.writeFileSync(articleAbs, newHtml);
   console.log('[add-illustrations] 已更新文章', articlePath);
