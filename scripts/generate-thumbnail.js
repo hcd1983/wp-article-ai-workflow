@@ -50,7 +50,6 @@ async function main() {
   try {
     const { buffer } = await generateThumbnail(prompt, {
       imageSource,
-      prompt,
       pexelsQuery: imageSource === 'pexels' ? pexelsQuery : undefined,
       referenceImagePaths: imageSource === 'gemini' ? referenceImagePaths : [],
       usedPhotoIds: new Set(),
