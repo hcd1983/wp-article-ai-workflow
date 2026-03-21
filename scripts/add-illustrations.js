@@ -31,6 +31,7 @@ import { fileURLToPath } from 'url';
 import { generateThumbnail } from '../lib/generate-thumbnail.js';
 import { getIllustrationConfig } from '../lib/illustration-config.js';
 import { splitIntoBlocks, insertFigures } from '../lib/html-utils.js';
+import { resolveImageSource, resolveShowAttribution } from '../lib/illustration-plan-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,31 +49,6 @@ function parseArgs() {
     parsed[key] = value;
   }
   return parsed;
-}
-
-/**
- * @param {object} plan
- * @param {object} item
- * @returns {'gemini'|'pexels'}
- */
-function resolveImageSource(plan, item) {
-  const raw = item.source ?? plan.defaultSource ?? 'gemini';
-  const n = String(raw).toLowerCase();
-  if (n === 'pexels') return 'pexels';
-  return 'gemini';
-}
-
-/**
- * @param {'gemini'|'pexels'} source
- * @param {object} item
- * @param {boolean} pexelsAttributionDefault
- */
-function resolveShowAttribution(source, item, pexelsAttributionDefault) {
-  if (source !== 'pexels') return false;
-  if (typeof item.attribution === 'boolean') {
-    return item.attribution;
-  }
-  return pexelsAttributionDefault;
 }
 
 async function main() {

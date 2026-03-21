@@ -40,6 +40,7 @@ import {
   getChapterIllustrationPath,
 } from '../lib/series-config.js';
 import { splitIntoBlocks, insertFigures } from '../lib/html-utils.js';
+import { resolveImageSource, resolveShowAttribution } from '../lib/illustration-plan-utils.js';
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -53,21 +54,6 @@ function parseArgs() {
     parsed[key] = value;
   }
   return parsed;
-}
-
-function resolveImageSource(plan, item) {
-  const raw = item.source ?? plan.defaultSource ?? 'gemini';
-  const n = String(raw).toLowerCase();
-  if (n === 'pexels') return 'pexels';
-  return 'gemini';
-}
-
-function resolveShowAttribution(source, item, pexelsAttributionDefault) {
-  if (source !== 'pexels') return false;
-  if (typeof item.attribution === 'boolean') {
-    return item.attribution;
-  }
-  return pexelsAttributionDefault;
 }
 
 async function main() {
