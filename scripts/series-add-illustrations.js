@@ -6,23 +6,34 @@
  * 預設插圖風格從系列 art_style.illustration_style 讀取，保持跨章節視覺一致性。
  *
  * 用法：
- *   yarn series:add-illustrations --series <slug> --chapter <num> --plan <path 或 -> [--use-character-reference]
+ *   yarn series:add-illustrations --series <slug> --chapter <num> --plan <path 或 -> [--use-character-reference] [--strict]
  *
  * 計畫格式（JSON）：
  *   {
+ *     "defaultSource": "gemini" | "pexels"（可選）,
  *     "style": "可選，覆寫整篇風格",
  *     "illustrations": [
- *       { "insertAfterBlockIndex": 0, "prompt": "英文描述", "altText": "圖說" }
+ *       {
+ *         "insertAfterBlockIndex": 0,
+ *         "source": "gemini" | "pexels"（可選）,
+ *         "prompt": "英文描述（Gemini）",
+ *         "pexelsQuery": "關鍵字（Pexels）",
+ *         "altText": "圖說",
+ *         "attribution": false（可選）
+ *       }
  *     ]
  *   }
  *
  * 優先順序：
  *   單張 style > plan.style > config.art_style.illustration_style
+ *
+ * Pexels 來源不使用系列角色參考圖（referenceImagePaths）。
  */
 
 import fs from 'fs';
 import path from 'path';
 import { generateThumbnail } from '../lib/generate-thumbnail.js';
+import { getIllustrationConfig } from '../lib/illustration-config.js';
 import {
   readSeriesConfig,
   getChapterHtmlPath,
@@ -44,25 +55,43 @@ function parseArgs() {
   return parsed;
 }
 
+function resolveImageSource(plan, item) {
+  const raw = item.source ?? plan.defaultSource ?? 'gemini';
+  const n = String(raw).toLowerCase();
+  if (n === 'pexels') return 'pexels';
+  return 'gemini';
+}
+
+function resolveShowAttribution(source, item, pexelsAttributionDefault) {
+  if (source !== 'pexels') return false;
+  if (typeof item.attribution === 'boolean') {
+    return item.attribution;
+  }
+  return pexelsAttributionDefault;
+}
+
 async function main() {
   const args = parseArgs();
   const seriesSlug = args.series;
   const chapterNum = args.chapter ? parseInt(args.chapter, 10) : NaN;
   const planPath = args.plan;
   const dryRun = args['dry-run'] === true;
+  const strictCli = args.strict === true;
   const referenceArg = args.reference || args.ref || '';
   const useCharacterReference = args['use-character-reference'] === true;
 
   if (!seriesSlug || isNaN(chapterNum) || !planPath) {
     console.error(
-      '用法: yarn series:add-illustrations --series <slug> --chapter <num> --plan <path 或 ->'
+      '用法: yarn series:add-illustrations --series <slug> --chapter <num> --plan <path 或 -> [--strict]'
     );
     process.exitCode = 1;
     return;
   }
 
+  const ilc = getIllustrationConfig();
+  const strict = strictCli || ilc.strictMode;
+
   try {
-    // 讀取系列 config
     const config = readSeriesConfig(seriesSlug);
     const baseStyle = config.art_style?.illustration_style || '';
     const seriesDir = path.dirname(getChapterHtmlPath(seriesSlug, chapterNum));
@@ -71,16 +100,14 @@ async function main() {
       .map((s) => s.trim())
       .filter(Boolean)
       .map((p) => path.resolve(p));
-    const referenceImagePaths = [...cliReferencePaths];
+    let referenceImagePaths = [...cliReferencePaths];
 
-    // 讀取章節 HTML
     const htmlPath = getChapterHtmlPath(seriesSlug, chapterNum);
     if (!fs.existsSync(htmlPath)) {
       throw new Error(`章節 HTML 不存在：${htmlPath}`);
     }
     const html = fs.readFileSync(htmlPath, 'utf8');
 
-    // 讀取插圖計畫
     let planJson;
     if (planPath === '-') {
       planJson = fs.readFileSync(0, 'utf8');
@@ -98,7 +125,6 @@ async function main() {
       throw new Error(`計畫 JSON 解析失敗：${e.message}`);
     }
 
-    // 可在 plan 中用 useCharacterReference=true 控制是否套用角色參考圖（預設不套用）
     const planUseCharacterReference = plan?.useCharacterReference === true;
     const resolvedUseCharacterReference = useCharacterReference || planUseCharacterReference;
     if (resolvedUseCharacterReference && Array.isArray(config.characters)) {
@@ -115,37 +141,63 @@ async function main() {
       return;
     }
 
-    // 依 insertAfterBlockIndex 升序排列
     const sorted = [...illustrations].sort(
       (a, b) => (a.insertAfterBlockIndex ?? 0) - (b.insertAfterBlockIndex ?? 0)
     );
 
     const blocks = splitIntoBlocks(html);
-    const resolvedIllustrations = [];
+    const usedPhotoIds = new Set();
+    const successItems = [];
 
     for (let i = 0; i < sorted.length; i += 1) {
       const item = sorted[i];
-      // 優先順序：單張 style > plan.style > config.art_style.illustration_style
+      const source = resolveImageSource(plan, item);
       const style = item.style ?? plan.style ?? baseStyle;
       const prompt = item.prompt || 'illustration';
       const altText = item.altText || '';
-      const outPath = getChapterIllustrationPath(seriesSlug, chapterNum, i + 1);
-
-      resolvedIllustrations.push({ ...item, imagePath: outPath });
+      const seq = dryRun ? i + 1 : successItems.length + 1;
+      const outPath = getChapterIllustrationPath(seriesSlug, chapterNum, seq);
+      const showAttribution = resolveShowAttribution(source, item, ilc.pexelsAttributionDefault);
 
       if (dryRun) {
         console.log(
-          `[series-add-illustrations] [dry-run] 會產圖：${path.basename(outPath)} — ${prompt.slice(0, 60)}`
+          `[series-add-illustrations] [dry-run] 會產圖：${path.basename(outPath)} (${source}) — ${(prompt || item.pexelsQuery || '').slice(0, 60)}`
         );
         continue;
       }
 
+      const genOptions = {
+        imageSource: source,
+        prompt,
+        pexelsQuery: item.pexelsQuery,
+        style: source === 'gemini' ? style : undefined,
+        referenceImagePaths: source === 'gemini' ? referenceImagePaths : [],
+        usedPhotoIds,
+      };
+
       try {
-        const buffer = await generateThumbnail(prompt, { style, referenceImagePaths });
+        const { buffer, meta } = await generateThumbnail(prompt, genOptions);
         fs.writeFileSync(outPath, buffer);
-        console.log(`[series-add-illustrations] 已寫入：${path.basename(outPath)}`);
+        console.log(`[series-add-illustrations] 已寫入：${path.basename(outPath)} (${source})`);
+        successItems.push({
+          insertAfterBlockIndex: item.insertAfterBlockIndex ?? 0,
+          altText,
+          imagePath: outPath,
+          showAttribution,
+          pexelsMeta:
+            source === 'pexels' && meta
+              ? {
+                  photographer: meta.photographer,
+                  photographerUrl: meta.photographerUrl,
+                  sourceUrl: meta.sourceUrl,
+                }
+              : undefined,
+        });
       } catch (err) {
-        throw new Error(`產圖失敗（${path.basename(outPath)}）：${err.message}`);
+        console.error(`[series-add-illustrations] 產圖失敗（${path.basename(outPath)}）：`, err.message);
+        if (strict) {
+          throw err;
+        }
       }
     }
 
@@ -154,7 +206,7 @@ async function main() {
       return;
     }
 
-    const newBlocks = insertFigures(blocks, resolvedIllustrations);
+    const newBlocks = insertFigures(blocks, successItems);
     fs.writeFileSync(htmlPath, newBlocks.join('\n'), 'utf8');
     console.log(`[series-add-illustrations] 已更新：${htmlPath}`);
   } catch (error) {
