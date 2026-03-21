@@ -20,6 +20,6 @@
 
 ```bash
 yarn          # 安裝依賴
-cp .env.example .env  # 填入 SITE、USER_NAME、WP_APP_PASSWORD、GEMINI_API_KEY
+cp .env.example .env  # 填入 SITE、USER_NAME、WP_APP_PASSWORD、GEMINI_API_KEY（使用 Pexels 時另填 PEXELS_API_KEY）
 yarn test:config      # 確認設定可讀取
 ```
