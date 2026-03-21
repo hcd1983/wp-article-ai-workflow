@@ -123,7 +123,7 @@ async function main() {
     const prompt = item.prompt || 'illustration';
     const altText = item.altText || '';
     const style = item.style ?? plan.style ?? ilc.defaultStyle;
-    const seq = dryRun ? i + 1 : successItems.length + 1;
+    const seq = i + 1;
     const outName = `${slug}-${seq}.jpg`;
     const outPath = path.join(draftDir, outName);
     const showAttribution = resolveShowAttribution(source, item, ilc.pexelsAttributionDefault);

@@ -128,7 +128,7 @@ async function main() {
       const style = item.style ?? plan.style ?? baseStyle;
       const prompt = item.prompt || 'illustration';
       const altText = item.altText || '';
-      const seq = dryRun ? i + 1 : successItems.length + 1;
+      const seq = i + 1;
       const outPath = getChapterIllustrationPath(seriesSlug, chapterNum, seq);
       const showAttribution = resolveShowAttribution(source, item, ilc.pexelsAttributionDefault);
 
