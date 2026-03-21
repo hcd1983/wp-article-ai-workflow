@@ -67,6 +67,7 @@ AI Agent 驅動的 WordPress 內容自動化系統，支援兩種工作模式：
 
 - **WordPress**：透過 WordPress REST API（Basic Auth / Application Password）讀取 Tag/Category、上傳媒體、建立/更新文章，並支援將文章 HTML 內的相對路徑圖片自動上傳到媒體庫再替換連結。
 - **Gemini API**：用於產生縮圖與插圖（prompt 驅動），並可搭配參考圖維持系列角色/畫風一致。
+- **Pexels API**：搜尋攝影圖庫作為圖片來源，支援橫向篩選、最小寬度 1200px、同篇去重與 rate limit 提示。同一篇文章可混合使用 Gemini 與 Pexels。
 - **影像處理（Sharp）**：縮圖壓縮、尺寸調整，讓發文圖片更符合網頁載入需求。
 
 ---
@@ -281,9 +282,18 @@ wp-article-ai-workflow/
 │   ├── config.js                 # 讀取 .env 設定
 │   ├── wp-client.js              # WordPress REST API 封裝
 │   ├── gemini-image.js           # Gemini 產圖
-│   ├── generate-thumbnail.js     # 產圖 + Sharp 壓縮
+│   ├── image-source-registry.js  # Registry/Strategy：gemini、pexels
+│   ├── strategies/
+│   │   ├── gemini-strategy.js    # Gemini 來源策略
+│   │   └── pexels-strategy.js    # Pexels 來源策略
+│   ├── pexels-client.js          # Pexels Photos Search API
+│   ├── fetch-image-buffer.js     # URL → Buffer 下載（timeout + retry）
+│   ├── generate-thumbnail.js     # 經 registry 產圖 + Sharp 壓縮
 │   ├── thumbnail-optimize.js     # Sharp 尺寸優化
+│   ├── html-utils.js             # HTML 區塊切割、插圖插入、跳脫
 │   ├── illustration-config.js    # 插圖設定（.env + rules）
+│   ├── illustration-plan-utils.js # 插圖計畫共用解析
+│   ├── parse-cli-args.js         # 共用 CLI 參數解析
 │   └── series-config.js          # 連載設定讀寫工具
 ├── scripts/
 │   ├── wp-get-tags.js            # 讀取 Tag / Category

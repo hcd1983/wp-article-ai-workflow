@@ -142,13 +142,17 @@ yarn series:add-illustrations --series <slug> --chapter <N> --plan <計畫.json>
 - **`lib/generate-thumbnail.js`** — 經 registry 產圖 + `thumbnail-optimize`；回傳 `{ buffer, meta? }`。
 - **`lib/thumbnail-optimize.js`** — 以 Sharp 壓縮並調整圖片尺寸。
 - **`lib/illustration-config.js`** — 載入 `.env` 插圖設定 + 解析 `docs/illustration-rules.md` 的 YAML 排除規則。
+- **`lib/illustration-plan-utils.js`** — 插圖計畫 JSON 共用解析（`resolveImageSource`、`resolveShowAttribution`）。
+- **`lib/parse-cli-args.js`** — 共用 CLI 參數解析（`parseCliArgs`），所有腳本統一使用。
+- **`lib/html-utils.js`** — HTML 區塊切割（`splitIntoBlocks`）、插圖插入（`insertFigures`）、HTML 跳脫（含 `isSafeUrl` 防 XSS）。
 
 ### 腳本職責
 
 - **`scripts/wp-get-tags.js`** — 印出站點所有 tags + categories JSON。
 - **`scripts/wp-publish-post.js`** — 發布/更新文章，自動上傳文內相對路徑圖片到 WordPress 媒體庫。
-- **`scripts/generate-thumbnail.js`** — CLI 入口，解析 `--prompt` / `--out` 參數後呼叫 `lib/generate-thumbnail.js`。
-- **`scripts/add-illustrations.js`** — CLI 入口，讀入插圖計畫 JSON，依序產圖並插入 HTML `<figure>`。
+- **`scripts/generate-thumbnail.js`** — CLI 入口，解析 `--image-source` / `--prompt` / `--out` 參數後呼叫 `lib/generate-thumbnail.js`。
+- **`scripts/add-illustrations.js`** — CLI 入口，讀入插圖計畫 JSON，依序產圖並插入 HTML `<figure>`（支援混合來源、`--strict`）。
+- **`scripts/series-add-illustrations.js`** — 連載版插圖 CLI，同 `add-illustrations` 但整合系列 Art Bible 與角色參考圖。
 - **`scripts/upload-inline-images-once.js`** — 一次性輔助工具，將文內圖片統一上傳到 WordPress。
 
 ### 文章命名規範
