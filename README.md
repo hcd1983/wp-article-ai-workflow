@@ -117,6 +117,9 @@ pnpm test:config
 | `ILLUSTRATION_ENABLED_DEFAULT` | 否 | 是否預設開啟插圖（預設 `true`） |
 | `ILLUSTRATION_MAX_PER_ARTICLE` | 否 | 每篇文章最多插圖數（預設 `3`） |
 | `ILLUSTRATION_DEFAULT_STYLE` | 否 | 插圖預設風格描述（英文） |
+| `ILLUSTRATION_STRICT_MODE` | 否 | 為 `true` 時任一幅插圖失敗即中斷（預設 `false`） |
+| `PEXELS_API_KEY` | 否* | Pexels API 金鑰（使用圖庫來源時必填） |
+| `PEXELS_ATTRIBUTION_DEFAULT` | 否 | Pexels 圖是否在 figcaption 顯示署名（預設 `true`） |
 
 ### 取得 `WP_APP_PASSWORD`（WordPress Application Password）
 
@@ -173,15 +176,18 @@ pnpm wp:publish-post --update-slug "<既有 slug>" \
 
 | 指令 | 說明 |
 |------|------|
-| `pnpm ai:generate-thumbnail` | 依 prompt 產圖並以 Sharp 壓縮 |
-| `pnpm ai:add-illustrations` | 依插圖計畫為單篇文章插圖 |
+| `pnpm ai:generate-thumbnail` | 依 `--image-source`（gemini／pexels）產圖並以 Sharp 壓縮 |
+| `pnpm ai:add-illustrations` | 依插圖計畫為單篇文章插圖（可混合來源；可 `--strict`） |
 
 ```bash
 pnpm ai:generate-thumbnail --prompt "<英文描述>" --out ./article-drafts/<slug>.jpg
-# （可選）帶參考圖，維持角色/畫風一致（可逗號分隔多張）
+# （可選）帶參考圖，維持角色/畫風一致（可逗號分隔多張，僅 Gemini）
 pnpm ai:generate-thumbnail --prompt "<英文描述>" --reference "./path/to/ref.jpg" --out ./article-drafts/<slug>.jpg
+# Pexels 圖庫
+pnpm ai:generate-thumbnail --image-source pexels --pexels-query "<關鍵字>" --out ./article-drafts/<slug>.jpg
 
 pnpm ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫.json>
+pnpm ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫.json> --strict
 ```
 
 > **建議**：若是某個連載系列的封面或插圖，請先檢查該系列設定檔（`article-drafts/<series-slug>-series/_<series-slug>-series-config.md`）中的 `art_style.cover_style` / `art_style.illustration_style`，並以此為主體組合 prompt；除非有特別需求，不要自行改變畫風或加入互相衝突的風格描述。
