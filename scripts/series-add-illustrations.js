@@ -114,7 +114,13 @@ async function main() {
       return;
     }
 
-    const sorted = [...illustrations].sort(
+    const maxCount = ilc.maxPerArticle;
+    if (illustrations.length > maxCount) {
+      console.warn(`[series-add-illustrations] 計畫共 ${illustrations.length} 張，上限 ${maxCount}，僅處理前 ${maxCount} 張`);
+    }
+    const toProcess = illustrations.slice(0, maxCount);
+
+    const sorted = [...toProcess].sort(
       (a, b) => (a.insertAfterBlockIndex ?? 0) - (b.insertAfterBlockIndex ?? 0)
     );
 
