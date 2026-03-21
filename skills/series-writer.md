@@ -164,14 +164,20 @@ yarn series:init \
 每章完稿後（可選）：
 
 **Step 1：建立插圖計畫（由 Agent 產出 JSON）**
+
+- **出圖來源**：與單篇 `auto-post` 步驟 3.5 相同——使用者未指定且未全權委託時，Agent 應先問 Gemini／Pexels／混合；提議時以**自然語言描述段落位置**，確認後再填入 `insertAfterBlockIndex`。
+- **Pexels**：`source: "pexels"` 且每張需 `pexelsQuery`；**不使用**系列角色參考圖（`--reference` / `--use-character-reference` 僅對 Gemini 張有效）。
+- **JSON 範例**（可混合來源）：
 ```json
 {
+  "defaultSource": "gemini",
   "illustrations": [
-    { "insertAfterBlockIndex": 1, "prompt": "英文圖像描述", "altText": "圖說" }
+    { "insertAfterBlockIndex": 1, "prompt": "英文圖像描述", "altText": "圖說" },
+    { "insertAfterBlockIndex": 4, "source": "pexels", "pexelsQuery": "cyberpunk city night", "altText": "圖說" }
   ]
 }
 ```
-`insertAfterBlockIndex` 為 0 起算的 HTML 頂層區塊索引。`style` 省略時使用 `art_style.illustration_style`。
+`insertAfterBlockIndex` 為 0 起算的 HTML 頂層區塊索引。`style` 省略時使用 `art_style.illustration_style`（Gemini 張）。
 
 **插圖數量與分散建議：**
 
@@ -185,6 +191,9 @@ yarn series:add-illustrations \
   --series <slug> \
   --chapter <N> \
   --plan <計畫檔路徑 或 ->
+
+# 舊版「一錯即停」
+yarn series:add-illustrations --series <slug> --chapter <N> --plan <計畫.json> --strict
 ```
 
 （可選）若要維持角色一致性，可帶參考圖（可逗號分隔多張）：
@@ -211,9 +220,14 @@ yarn ai:generate-thumbnail \
 ```
 > 建議以 `art_style.cover_style` 作為 prompt 前綴。
 
-（可選）封面也可帶參考圖，維持角色/畫風一致（可逗號分隔多張）：
+（可選）封面也可帶參考圖，維持角色/畫風一致（可逗號分隔多張，僅 Gemini）：
 ```bash
 yarn ai:generate-thumbnail --prompt "<封面描述（英文）>" --reference "./path/to/ref.jpg" --out ./article-drafts/<slug>-series/chapter-<NN>.jpg
+```
+
+Pexels 封面：
+```bash
+yarn ai:generate-thumbnail --image-source pexels --pexels-query "<關鍵字>" --out ./article-drafts/<slug>-series/chapter-<NN>.jpg
 ```
 
 **Step 2：發布**
