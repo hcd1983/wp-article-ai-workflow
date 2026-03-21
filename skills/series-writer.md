@@ -230,6 +230,8 @@ Pexels 封面：
 yarn ai:generate-thumbnail --image-source pexels --pexels-query "<關鍵字>" --out ./article-drafts/<slug>-series/chapter-<NN>.jpg
 ```
 
+- **若使用者已直接提供封面圖或指定要採用的圖片檔，優先使用該素材。** 只做必要的檔名對齊、格式轉換與同步，不要自行重生新封面，除非使用者明確要求。
+
 **Step 2：發布**
 ```bash
 yarn series:publish \

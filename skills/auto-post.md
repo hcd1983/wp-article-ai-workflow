@@ -86,6 +86,7 @@
      - 產出**最終**插圖計畫 JSON（使用者確認後）：見 `CLAUDE.md` 範例（含 `defaultSource`、`source`、`pexelsQuery`、`attribution` 等）。
      - 呼叫：`yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫檔路徑>`（或 `--plan -`）。
      - 完成後文章內會多出 `<figure>` 與對應圖片檔；發布時需一併上傳這些圖片。使用者回饋調整來源或位置時，應輸出**更新後的完整提議**再執行（迭代細節見 `docs/implementation-plan-pexels.md` §13）。
+     - **若使用者直接提供某張插圖或封面檔案要採用，應優先使用該檔案，並只處理命名、格式轉換、插入 HTML、同步 review 草稿等後續步驟。**
 
 4. **歸類分類與 Tag**
    - 呼叫：`yarn wp:get-tags` 取得目前站點的 `tags` 與 `categories`。
@@ -144,3 +145,4 @@
    - 文章有正確分類與 Tag。
    - 縮圖已上傳且設定為 featured image。
    - 發布時使用 `--content-file ./article-drafts/<slug>.html` 與 `--thumbnail ./article-drafts/<slug>.jpg`（從專案根目錄執行）。
+afts/<slug>.html` 與 `--thumbnail ./article-drafts/<slug>.jpg`（從專案根目錄執行）。
