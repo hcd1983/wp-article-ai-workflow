@@ -27,10 +27,10 @@ async function main() {
   const args = parseArgs();
   const prompt = args.prompt || 'Blog thumbnail';
   const referenceArg = args.reference || args.ref || '';
+  const imageSourceRaw = args['image-source'] || args.imageSource || 'gemini';
+  const imageSource = String(imageSourceRaw).toLowerCase() === 'pexels' ? 'pexels' : 'gemini';
+  const pexelsQuery = args['pexels-query'] || args.pexelsQuery || '';
 
-  // Always resolve output relative to the project root, not the scripts folder.
-  // This allows callers to pass paths like "./article-drafts/xxx.jpg" and have
-  // them land in the expected top-level directory instead of under scripts/.
   const projectRoot = path.resolve(__dirname, '..');
   const referenceImagePaths = String(referenceArg)
     .split(',')
@@ -41,8 +41,20 @@ async function main() {
     ? path.resolve(projectRoot, args.out)
     : path.resolve(projectRoot, 'article-drafts/thumbnail.jpg');
 
+  if (imageSource === 'pexels' && !String(pexelsQuery).trim()) {
+    console.error('[generate-thumbnail] --image-source pexels 時必須提供 --pexels-query');
+    process.exitCode = 1;
+    return;
+  }
+
   try {
-    const buffer = await generateThumbnail(prompt, { referenceImagePaths });
+    const { buffer } = await generateThumbnail(prompt, {
+      imageSource,
+      prompt,
+      pexelsQuery: imageSource === 'pexels' ? pexelsQuery : undefined,
+      referenceImagePaths: imageSource === 'gemini' ? referenceImagePaths : [],
+      usedPhotoIds: new Set(),
+    });
     fs.writeFileSync(outPath, buffer);
     console.log('[generate-thumbnail] saved to', outPath);
   } catch (error) {
@@ -53,4 +65,3 @@ async function main() {
 }
 
 main();
-
