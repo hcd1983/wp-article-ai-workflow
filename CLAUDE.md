@@ -25,7 +25,9 @@ yarn test:config
 
 必填環境變數：`SITE`、`USER_NAME`、`WP_APP_PASSWORD`、`GEMINI_API_KEY`
 
-插圖相關選填：`ILLUSTRATION_ENABLED_DEFAULT`（預設 true）、`ILLUSTRATION_MAX_PER_ARTICLE`（預設 3）、`ILLUSTRATION_DEFAULT_STYLE`（預設 `clean diagram, minimal`）
+插圖相關選填：`ILLUSTRATION_ENABLED_DEFAULT`（預設 true）、`ILLUSTRATION_MAX_PER_ARTICLE`（預設 3）、`ILLUSTRATION_DEFAULT_STYLE`（預設 `clean diagram, minimal`）、`ILLUSTRATION_STRICT_MODE`（預設 false；為 true 時任一幅插圖失敗即中斷整篇）
+
+Pexels 圖庫選填：`PEXELS_API_KEY`（使用 `source: pexels` 或 `--image-source pexels` 時需要）、`PEXELS_ATTRIBUTION_DEFAULT`（預設 true，於 figcaption 顯示攝影師／來源連結）
 
 ---
 
@@ -36,9 +38,9 @@ yarn test:config
 | `yarn test:config` | 驗證 `.env` 設定是否可讀取 |
 | `yarn wp:get-tags` | 讀取 WordPress 所有 Tag 與 Category（含 id） |
 | `yarn wp:publish-post` | 發布或更新 WordPress 文章（見下方參數） |
-| `yarn ai:generate-thumbnail` | 呼叫 Gemini 產圖 + Sharp 壓縮縮圖 |
-| `yarn ai:add-illustrations` | 依插圖計畫 JSON 產圖並插入 HTML |
-| `yarn series:add-illustrations` | 依系列 Art Bible 風格為章節插圖（可選用參考圖鎖角色一致） |
+| `yarn ai:generate-thumbnail` | 依 `--image-source` 呼叫 Gemini 或 Pexels + Sharp 壓縮縮圖 |
+| `yarn ai:add-illustrations` | 依插圖計畫 JSON（可混合 Gemini / Pexels）產圖並插入 HTML；可加 `--strict` |
+| `yarn series:add-illustrations` | 依系列計畫插圖；Gemini 時可選參考圖鎖角色；**Pexels 來源不使用**角色參考圖 |
 | `yarn series:publish` | 發布或更新連載章節（支援 update-slug，並自動處理文內圖片上傳與 Tag） |
 
 ### wp:publish-post 常用參數
@@ -66,9 +68,12 @@ yarn wp:publish-post \
 ### ai:generate-thumbnail 參數
 
 ```bash
+# 預設 Gemini
 yarn ai:generate-thumbnail --prompt "<英文描述>" --out ./article-drafts/<slug>.jpg
-# （可選）帶參考圖，維持角色/畫風一致（可逗號分隔多張）
+# （可選）帶參考圖，維持角色/畫風一致（可逗號分隔多張，僅 Gemini）
 yarn ai:generate-thumbnail --prompt "<英文描述>" --reference "./path/to/ref.jpg" --out ./article-drafts/<slug>.jpg
+# Pexels 圖庫（需 PEXELS_API_KEY）
+yarn ai:generate-thumbnail --image-source pexels --pexels-query "<搜尋關鍵字>" --out ./article-drafts/<slug>.jpg
 ```
 
 > **產圖準則**：若有對應的系列設定檔（例如 `_<slug>-series-config.md` 中的 `art_style.cover_style` / `art_style.illustration_style`），除非使用者明確要求 override，所有封面與插圖的 prompt 應優先依該 Art Bible 組成（再補充場景語意），不要自行加入與其衝突的寫實風格或其他畫風關鍵字。
@@ -77,6 +82,8 @@ yarn ai:generate-thumbnail --prompt "<英文描述>" --reference "./path/to/ref.
 
 ```bash
 yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫.json>
+# 舊版「一錯即停」行為
+yarn ai:add-illustrations --article ./article-drafts/<slug>.html --plan <計畫.json> --strict
 ```
 
 ### series:add-illustrations 常用參數
@@ -95,14 +102,29 @@ yarn series:add-illustrations --series <slug> --chapter <N> --plan <計畫.json>
 插圖計畫 JSON 格式：
 ```json
 {
-  "style": "主風格描述（選填）",
+  "defaultSource": "gemini",
+  "style": "主風格描述（選填，Gemini 用）",
   "illustrations": [
-    { "insertAfterBlockIndex": 0, "prompt": "英文圖像描述", "altText": "圖說" }
+    {
+      "insertAfterBlockIndex": 0,
+      "source": "gemini",
+      "prompt": "英文圖像描述",
+      "altText": "圖說"
+    },
+    {
+      "insertAfterBlockIndex": 2,
+      "source": "pexels",
+      "pexelsQuery": "software team collaboration",
+      "altText": "圖說",
+      "attribution": false
+    }
   ]
 }
 ```
 
-`insertAfterBlockIndex` 從 0 開始，以 HTML 頂層元素（h1/h2/p/ul/ol/hr/pre）順序計算。
+- `insertAfterBlockIndex` 從 0 開始，以 HTML 頂層元素（h1/h2/p/ul/ol/hr/pre）順序計算。
+- `source` 省略時依 `defaultSource`，再預設 `gemini`。Pexels 須提供 `pexelsQuery`。
+- 預設單張失敗會略過該張並繼續；`ILLUSTRATION_STRICT_MODE=true` 或 `--strict` 可改為整篇中斷。
 
 ---
 
@@ -113,7 +135,11 @@ yarn series:add-illustrations --series <slug> --chapter <N> --plan <計畫.json>
 - **`lib/config.js`** — 讀取 `.env`，export `config` 物件，所有腳本透過此檔取得設定。
 - **`lib/wp-client.js`** — 封裝 WordPress REST API（Basic Auth），提供 `getTags`、`getCategories`、`getPosts`、`uploadMedia`、`createPost`、`updatePost`。
 - **`lib/gemini-image.js`** — 呼叫 Gemini API 產生圖片 Buffer。
-- **`lib/generate-thumbnail.js`** — 組合 `gemini-image` + `thumbnail-optimize`，對外提供 `generateThumbnail(prompt, options)`。
+- **`lib/image-source-registry.js`** — Registry／Strategy：`gemini`、`pexels`，統一 `generateRawImage`。
+- **`lib/strategies/gemini-strategy.js`** / **`lib/strategies/pexels-strategy.js`** — 各來源實作。
+- **`lib/pexels-client.js`** — Pexels Photos Search（橫向、寬度篩選、同篇 photo id 去重、rate limit 提示）。
+- **`lib/fetch-image-buffer.js`** — 自 URL 下載圖片 Buffer（timeout + 1 次重試）。
+- **`lib/generate-thumbnail.js`** — 經 registry 產圖 + `thumbnail-optimize`；回傳 `{ buffer, meta? }`。
 - **`lib/thumbnail-optimize.js`** — 以 Sharp 壓縮並調整圖片尺寸。
 - **`lib/illustration-config.js`** — 載入 `.env` 插圖設定 + 解析 `docs/illustration-rules.md` 的 YAML 排除規則。
 
