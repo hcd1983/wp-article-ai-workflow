@@ -4,27 +4,13 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateThumbnail } from '../lib/generate-thumbnail.js';
+import { parseCliArgs } from '../lib/parse-cli-args.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const parsed = {};
-
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (!arg.startsWith('--')) continue;
-    const key = arg.slice(2);
-    const value = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true;
-    parsed[key] = value;
-  }
-
-  return parsed;
-}
-
 async function main() {
-  const args = parseArgs();
+  const args = parseCliArgs();
   const prompt = args.prompt || 'Blog thumbnail';
   const referenceArg = args.reference || args.ref || '';
   const imageSourceRaw = args['image-source'] || args.imageSource || 'gemini';

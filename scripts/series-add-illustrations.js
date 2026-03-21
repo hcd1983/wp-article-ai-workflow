@@ -41,23 +41,10 @@ import {
 } from '../lib/series-config.js';
 import { splitIntoBlocks, insertFigures } from '../lib/html-utils.js';
 import { resolveImageSource, resolveShowAttribution } from '../lib/illustration-plan-utils.js';
-
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const parsed = {};
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (!arg.startsWith('--')) continue;
-    const key = arg.slice(2);
-    const next = args[i + 1];
-    const value = next && !next.startsWith('--') ? next : true;
-    parsed[key] = value;
-  }
-  return parsed;
-}
+import { parseCliArgs } from '../lib/parse-cli-args.js';
 
 async function main() {
-  const args = parseArgs();
+  const args = parseCliArgs();
   const seriesSlug = args.series;
   const chapterNum = args.chapter ? parseInt(args.chapter, 10) : NaN;
   const planPath = args.plan;
