@@ -3,6 +3,7 @@
 
 # Node
 node_modules/
+yarn.lock
 
 # 日誌與暫存
 *.log
